@@ -920,39 +920,42 @@ namespace CommonLibTest
             }, principal);
         }
 
-        // [Fact]
-        // public void LDAPPropertyProcessor_ReadAllowedToActPrincipals_ReturnsPopulatedList()
-        // {
-        //     var mock = new MockSearchResultEntry("CN\u003dWIN10,OU\u003dTestOU,DC\u003dtestlab,DC\u003dlocal",
-        //         new Dictionary<string, object>
-        //         {
-        //             {
-        //                 "msds-allowedtoactonbehalfofotheridentity",
-        //                     Helpers.B64ToBytes("AQUAAAAAAAUVAAAAIE+Qun9GhKV2SBaQUQQAAA==")
-        //             }
-        //         }, "S-1-5-21-3130019616-2776909439-2417379446-1101", Label.Computer);
-        //
-        //     var mockUtils = new Mock<MockLDAPUtils>();
-        //     var mockSecurityDescriptor = new Mock<ActiveDirectorySecurityDescriptor>();
-        //     var mockRuleDescriptor = new Mock<ActiveDirectoryRuleDescriptor>(MockBehavior.Loose);
-        //     mockRuleDescriptor.Setup(m => m.IdentityReference()).Returns("S-1-5-21-3130019616-2776909439-2417379446-1105");
-        //     
-        //     mockUtils.Setup(x => x.MakeSecurityDescriptor()).Returns(mockSecurityDescriptor.Object);
-        //     mockSecurityDescriptor.Setup(m => m.GetAccessRules(
-        //             It.IsAny<bool>(),
-        //             It.IsAny<bool>(),
-        //             It.IsAny<Type>()))
-        //         .Returns(new List<ActiveDirectoryRuleDescriptor>
-        //         {
-        //             mockRuleDescriptor.Object
-        //         });
-        //     
-        //     var processor = new LDAPPropertyProcessor(mockUtils.Object);
-        //     var principals = processor.ReadAllowedToActPrincipals(mock);
-        //     
-        //     Assert.Contains("S-1-5-21-3130019616-2776909439-2417379446-1105", principals.Select(p => p.ObjectIdentifier));
-        //     Assert.Single(principals);
-        // }
+        [WindowsOnlyFact]
+        public void LDAPPropertyProcessor_ReadAllowedToActPrincipals_ReturnsPopulatedList()
+        {
+            var mock = new MockSearchResultEntry("CN\u003dWIN10,OU\u003dTestOU,DC\u003dtestlab,DC\u003dlocal",
+                new Dictionary<string, object>
+                {
+                    {
+                        "msds-allowedtoactonbehalfofotheridentity",
+                            Helpers.B64ToBytes("AQUAAAAAAAUVAAAAIE+Qun9GhKV2SBaQUQQAAA==")
+                    }
+                }, "S-1-5-21-3130019616-2776909439-2417379446-1101", Label.Computer);
+        
+            var mockUtils = new Mock<MockLDAPUtils>();
+            var mockAccessRule = new Mock<ActiveDirectoryAccessRule>(Mock.Of<SecurityIdentifier>(), ActiveDirectoryRights.Self, AccessControlType.Allow);
+            var mockSecurityDescriptor = new Mock<ActiveDirectorySecurityDescriptor>();
+            var mockRuleDescriptor = new Mock<ActiveDirectoryRuleDescriptor>(mockAccessRule.Object);
+            mockRuleDescriptor.Setup(m => m.IdentityReference()).Returns("S-1-5-21-3130019616-2776909439-2417379446-1105");
+
+            var collection = new List<ActiveDirectoryRuleDescriptor>
+            {
+                mockRuleDescriptor.Object
+            };
+            
+            mockUtils.Setup(x => x.MakeSecurityDescriptor()).Returns(mockSecurityDescriptor.Object);
+            mockSecurityDescriptor.Setup(m => m.GetAccessRules(
+                    It.IsAny<bool>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<Type>()))
+                .Returns(collection);
+            
+            var processor = new LDAPPropertyProcessor(mockUtils.Object);
+            var principals = processor.ReadAllowedToActPrincipals(mock);
+            
+            Assert.Contains("S-1-5-21-3130019616-2776909439-2417379446-1105", principals.Select(p => p.ObjectIdentifier));
+            Assert.Single(principals);
+        }
 
         [Fact]
         public void LDAPPropertyProcessor_ReadSmsaPrincipals_ReturnsPopulatedList()
